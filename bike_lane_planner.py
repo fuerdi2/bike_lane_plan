@@ -1,7 +1,9 @@
-import numpy as np
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-import numpy as np
 import networkx as nx
+import shapefile
 class planner:
-    def __init__(self,graph,trajs,len_field='LENGTH',cost_field='LENGTH'):
+    def __init__(self,graph,len_field='LENGTH',cost_field='LENGTH'):
         #初始化参数格式：
         #graph:networkx Graph(),trajs:tuples,
         self.graph = graph
@@ -9,13 +11,14 @@ class planner:
         self.number_path_kv = self.create_number_path_kv(graph,len_field,cost_field)
         self.path_number_kv = self.create_path_number_kv(graph,self.number_path_kv)
         self.neighbors_of_number_path_kv = self.create_path_neighbors_kv(graph,self.number_path_kv,self.path_number_kv)
-        self.pathes_plan = set()
+        self.pathes_plan = tuple()
+        self.candidate_pathes_set = set()
         self.score = 0.0
     def initialize_pathes(self,k):
         initial_path_score_kv = dict(zip(self.number_path_kv.keys(),[self.calculate_gain(k) for k in self.number_path_kv.keys()]))
         initial_path_score_rank = sorted(initial_path_score_kv.items(),key = lambda v:v[1],reverse=True)
         initial_pathes = [k[0] for k in initial_path_score_rank][:k]
-        return (set(initial_pathes))
+        return tuple(initial_pathes)
     def create_number_path_kv(self,graph,len_field,cost_field):
         # parameters graph:networkx; len_field:string; cost_field:string
         # return:dictionary, such as {1:(3,4),2:(4,5)}.
@@ -59,7 +62,10 @@ class planner:
             return ()
         for i in range(length):
             if traj[i] not in pathes:
-                return traj[:i] + find_ctps(traj[i+1:],pathes)
+                if(i>0):
+                    return (traj[:i],)+self.find_ctps(traj[i+1:],pathes)
+                else:
+                    return self.find_ctps(traj[i+1:],pathes)
             if i == length-1:
                 return (traj[:],)
     def calculate_trajs_score(self,pathes_plan):
@@ -107,7 +113,7 @@ class planner:
                     gain = self.calculate_gain(cd)
                     if(gain>max_gain):
                         new_path = cd
-                self.pathes_plan+(new_path,)
+                self.pathes_plan=self.pathes_plan+(new_path,)
                 self.score = self.calculate_trajs_score(self.pathes_plan)
                 self.remain_budget = self.remain_budget -  self.number_path_kv[new_path]['cost']
                 self.candidate_pathes_set = self.candidate_pathes_set|set(self.neighbors_of_number_path_kv[new_path])-set(self.pathes_plan)
@@ -130,5 +136,5 @@ class shp2graph:
             traj = nx.shortest_path(graph,fn,tn)
             l = len(traj)
             traj = [pn_kv[(traj[i-1],traj[i])] for i in range(1,l)]
-            trajs+(traj,)
+            trajs = trajs+(tuple(traj),)
         return(trajs)
